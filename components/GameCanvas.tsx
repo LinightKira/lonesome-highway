@@ -331,8 +331,18 @@ const GameCanvas: React.FC<GameCanvasProps> = (props) => {
   }, []);
 
   return (
-    <div className="w-full h-screen bg-black">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}>
+    <div className="w-full h-screen bg-black overflow-hidden">
+      <Canvas
+        shadows
+        dpr={[1, 2]}
+        gl={{
+          antialias: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          alpha: false,
+        }}
+        camera={{ position: [0, 15, 25], fov: 60 }}
+        style={{ width: '100%', height: '100%' }}
+      >
         <Scene {...props} input={input} />
       </Canvas>
     </div>

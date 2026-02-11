@@ -65,43 +65,80 @@ const App: React.FC = () => {
   const toggleMute = () => setIsMuted(prev => !prev);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#0a0a1a] text-white select-none">
-      {/* Visual grain and vignette overlay */}
-      <div className="absolute inset-0 pointer-events-none z-10 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/p6.png')]"></div>
-      <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-transparent via-transparent to-black/60"></div>
+    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-[#1a0a2e] via-[#2d1b4e] to-[#0f0f23] text-white select-none">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,126,95,0.1),transparent_50%)] animate-pulse"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_0%,rgba(0,0,0,0.3)_100%)]"></div>
+      </div>
+
+      {/* Visual grain overlay */}
+      <div className="absolute inset-0 pointer-events-none z-10 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/p6.png')]"></div>
 
       <BGMPlayer isMuted={isMuted} isPlaying={gameState.status === GameStatus.PLAYING} />
 
       {gameState.status === GameStatus.START_SCREEN && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 p-8 text-center backdrop-blur-sm">
-          <div className="p-12 border-4 border-orange-500/50 bg-black/40">
-            <h1 className="text-4xl md:text-7xl font-bold mb-4 tracking-tighter text-orange-500 drop-shadow-[0_0_15px_rgba(255,126,95,0.5)]">
-              孤独的公路
-              <span className="block text-2xl mt-4 text-white/80 font-normal">LONELY HIGHWAY</span>
-            </h1>
-            <p className="max-w-md italic text-gray-400 my-8 text-sm leading-relaxed border-t border-b border-white/10 py-4">
-              "{quote}"
-            </p>
-            
-            <div className="flex flex-col gap-6 w-full max-w-sm mx-auto">
-              <button 
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-8 text-center">
+          {/* Main menu container */}
+          <div className="relative p-10 md:p-16 border-4 border-orange-500/60 bg-black/70 backdrop-blur-md shadow-[0_0_60px_rgba(255,126,95,0.3)] max-w-2xl">
+            {/* Decorative corners */}
+            <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-orange-400"></div>
+            <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-orange-400"></div>
+            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-orange-400"></div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-orange-400"></div>
+
+            {/* Title */}
+            <div className="mb-8">
+              <h1 className="text-5xl md:text-8xl font-bold mb-2 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-500 to-red-500 drop-shadow-[0_0_20px_rgba(255,126,95,0.6)]">
+                孤独的公路
+              </h1>
+              <p className="text-2xl md:text-3xl text-orange-300/90 font-light tracking-[0.3em] font-mono">
+                LONELY HIGHWAY
+              </p>
+            </div>
+
+            {/* Quote section */}
+            <div className="max-w-lg mx-auto mb-10 px-6 py-6 border-t border-b border-orange-500/30 bg-gradient-to-r from-orange-500/5 via-transparent to-red-500/5">
+              <p className="italic text-orange-200/90 text-base md:text-lg leading-relaxed">
+                "{quote}"
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-5 w-full max-w-md mx-auto">
+              <button
                 onClick={() => startGame(Level.LEVEL_1)}
-                className="group relative overflow-hidden bg-white text-black py-4 px-8 font-bold border-4 border-gray-300 hover:bg-orange-500 hover:text-white hover:border-orange-400 transition-all active:scale-95"
+                className="group relative overflow-hidden bg-gradient-to-r from-orange-500 to-orange-600 text-white py-5 px-10 font-bold border-4 border-orange-400/50 hover:from-orange-400 hover:to-orange-500 hover:border-orange-300 hover:shadow-[0_0_30px_rgba(255,126,95,0.5)] hover:scale-[1.02] transition-all duration-200"
               >
-                第一关：笔直冲刺
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                <span className="relative z-10 text-lg md:text-xl">
+                  第一关：笔直冲刺
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </button>
-              <button 
+
+              <button
                 onClick={() => startGame(Level.LEVEL_2)}
-                className="group relative overflow-hidden bg-black text-white py-4 px-8 font-bold border-4 border-gray-700 hover:border-orange-500 hover:shadow-[0_0_20px_rgba(255,165,0,0.3)] transition-all active:scale-95"
+                className="group relative overflow-hidden bg-gradient-to-r from-gray-900 to-gray-800 text-white py-5 px-10 font-bold border-4 border-gray-700/50 hover:from-gray-800 hover:to-gray-700 hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(255,165,0,0.4)] hover:scale-[1.02] transition-all duration-200"
               >
-                第二关：蜿蜒山道
-                <div className="absolute inset-0 bg-orange-500/10 -translate-x-full group-hover:translate-x-0 transition-transform"></div>
+                <span className="relative z-10 text-lg md:text-xl">
+                  第二关：蜿蜒山道
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
               </button>
             </div>
 
-            <div className="mt-12 text-[10px] text-gray-500 uppercase tracking-[0.2em]">
-              [W/A/D] 驾驶 • 不要停下 • 不要坠落
+            {/* Controls hint */}
+            <div className="mt-8 text-xs md:text-sm text-gray-400 uppercase tracking-[0.25em] space-y-2">
+              <p className="font-bold text-orange-400/80">操作说明</p>
+              <p>[W/A/D] 或 [方向键] 驾驶</p>
+              <p>保持前进速度 • 不要坠落</p>
+            </div>
+          </div>
+
+          {/* Footer decoration */}
+          <div className="mt-12 text-center">
+            <div className="inline-block px-6 py-2 border-2 border-orange-500/30 bg-black/40 text-xs text-orange-300/70 uppercase tracking-[0.3em]">
+              🎮 Press W/A/D to Drive 🚗
             </div>
           </div>
         </div>
