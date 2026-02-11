@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { GameStatus, Level, InputState } from '../types';
@@ -89,10 +89,10 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
       {/* 道路段 */}
       {roadSegments.map((seg, i) => (
         <group key={i} position={seg.position as [number, number, number]} rotation={seg.rotation as [number, number, number]}>
-          {/* 路面 */}
+          {/* 路面 - 使用更亮的颜色 */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
             <planeGeometry args={[ROAD_WIDTH, seg.length]} />
-            <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+            <meshStandardMaterial color="#2a2a2a" roughness={0.8} />
           </mesh>
           
           {/* 中心线 */}
@@ -122,30 +122,30 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
 const CarLights: React.FC<{ position: [number, number, number] }> = ({ position }) => {
   return (
     <group position={position}>
-      {/* 左车灯 */}
+      {/* 左车灯 - 增强亮度和范围 */}
       <spotLight
         position={[-0.8, 0.5, -1.5]}
-        target-position={[-0.8, 0, -10]}
-        angle={0.5}
-        penumbra={0.5}
-        intensity={50}
-        distance={100}
-        color="#fff5e0"
+        target-position={[-0.8, 0, -20]}
+        angle={0.6}
+        penumbra={0.4}
+        intensity={100}
+        distance={150}
+        color="#ffffee"
         castShadow
       />
-      {/* 右车灯 */}
+      {/* 右车灯 - 增强亮度和范围 */}
       <spotLight
         position={[0.8, 0.5, -1.5]}
-        target-position={[0.8, 0, -10]}
-        angle={0.5}
-        penumbra={0.5}
-        intensity={50}
-        distance={100}
-        color="#fff5e0"
+        target-position={[0.8, 0, -20]}
+        angle={0.6}
+        penumbra={0.4}
+        intensity={100}
+        distance={150}
+        color="#ffffee"
         castShadow
       />
       {/* 尾灯 */}
-      <pointLight position={[0, 0.5, 2]} intensity={20} distance={30} color="#ff0000" />
+      <pointLight position={[0, 0.5, 2]} intensity={30} distance={40} color="#ff3333" />
     </group>
   );
 };
@@ -275,10 +275,11 @@ const Scenery: React.FC<{ level: Level }> = ({ level }) => {
       const type: 'tree' | 'mountain' = typeRand > 0.3 ? 'tree' : 'mountain';
       const scale = type === 'mountain' ? 10 + Math.random() * 20 : 2 + Math.random() * 2;
       
+      // 山体和树木放在更远的地方，避免挡住公路
       const baseRadius = type === 'mountain' ? 25 : 15;
-      const safeDistance = (ROAD_WIDTH / 2) + baseRadius + 50;
+      const safeDistance = (ROAD_WIDTH / 2) + baseRadius + 150; // 增加到150
       
-      const xPos = roadX + (side * (safeDistance + Math.random() * 300));
+      const xPos = roadX + (side * (safeDistance + Math.random() * 400));
 
       items.push({ id: i, x: xPos, z: -zPos, type, scale });
     }
@@ -289,7 +290,7 @@ const Scenery: React.FC<{ level: Level }> = ({ level }) => {
     <group>
       {elements.map((e) => (
         e.type === 'mountain' ? 
-          <Mountain key={e.id} position={[e.x, -20, e.z]} scale={e.scale} /> :
+          <Mountain key={e.id} position={[e.x, -30, e.z]} scale={e.scale} /> :
           <Tree key={e.id} position={[e.x, 0, e.z]} />
       ))}
     </group>
@@ -345,14 +346,21 @@ const Scene: React.FC<GameCanvasProps & { input: InputState }> = ({ level, onWin
     <>
       <PerspectiveCamera makeDefault fov={60} near={0.1} far={2000} />
       
-      {/* 环境光 */}
-      <ambientLight intensity={0.2} color="#4a3d5c" />
+      {/* 环境光 - 增加亮度 */}
+      <ambientLight intensity={0.6} color="#6a5d7c" />
       
-      {/* 主光源（夕阳效果） */}
+      {/* 半球光 - 模拟天空和地面的反射 */}
+      <hemisphereLight 
+        skyColor="#ff7e5f" 
+        groundColor="#1a0f0a" 
+        intensity={0.8}
+      />
+      
+      {/* 主光源（夕阳效果）- 增强亮度 */}
       <directionalLight 
-        position={[100, 50, -200]} 
-        intensity={3}
-        color="#ff7e5f"
+        position={[100, 80, -200]} 
+        intensity={5}
+        color="#ffaa77"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-far={1000}
@@ -362,15 +370,22 @@ const Scene: React.FC<GameCanvasProps & { input: InputState }> = ({ level, onWin
         shadow-camera-bottom={-100}
       />
       
-      {/* 补光 */}
+      {/* 补光 - 增强 */}
       <directionalLight 
-        position={[-50, 30, -100]} 
-        intensity={0.5}
-        color="#5f7eff"
+        position={[-100, 50, -100]} 
+        intensity={2}
+        color="#7f9eff"
       />
       
-      {/* 雾气效果 - 增加氛围 */}
-      <fog attach="fog" args={['#0a050a', 50, 400]} />
+      {/* 填充光 - 从下方补光，减少死黑 */}
+      <directionalLight 
+        position={[0, -50, 100]} 
+        intensity={0.5}
+        color="#ff9966"
+      />
+      
+      {/* 雾气效果 - 调整为可见度更好 */}
+      <fog attach="fog" args={['#1a0a0a', 80, 600]} />
       
       <CustomSky />
       <Road level={level} />
