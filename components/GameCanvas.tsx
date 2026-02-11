@@ -59,6 +59,7 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
   const roadSegments = useMemo(() => {
     const segments = [];
     const step = 8.0; // 增大步长，减少段数
+    let index = 0;
     for (let z = 0; z < roadLength; z += step) {
       const x1 = getRoadOffset(z, level);
       const x2 = getRoadOffset(z + step, level);
@@ -70,8 +71,9 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
         position: [x1 + dx / 2, 0, -z - step / 2],
         rotation: [0, angle, 0],
         length: length + 0.2,
-        hasMarking: i % 3 === 0 // 每3段显示一个标记
+        hasMarking: index % 3 === 0 // 每3段显示一个标记
       });
+      index++;
     }
     return segments;
   }, [level, roadLength]);
