@@ -58,20 +58,20 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
   
   const roadSegments = useMemo(() => {
     const segments = [];
-    const step = 8.0; // 增大步长，减少段数
+    const step = 4.0; // 减小步长，让弯道更平滑
     let index = 0;
     for (let z = 0; z < roadLength; z += step) {
       const x1 = getRoadOffset(z, level);
       const x2 = getRoadOffset(z + step, level);
       const dx = x2 - x1;
       const angle = Math.atan2(dx, step);
-      const length = Math.sqrt(dx * dx + step * step);
+      const segLength = Math.sqrt(dx * dx + step * step);
       
       segments.push({
         position: [x1 + dx / 2, 0, -z - step / 2],
         rotation: [0, angle, 0],
-        length: length + 0.2,
-        hasMarking: index % 3 === 0 // 每3段显示一个标记
+        length: segLength * 1.05, // 稍微重叠避免缝隙
+        hasMarking: index % 4 === 0 // 每4段显示一个标记
       });
       index++;
     }
@@ -80,10 +80,10 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
 
   return (
     <group>
-      {/* 地面 */}
+      {/* 地面 - 使用较亮的颜色让玩家能看到边界 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, -roadLength/2]}>
         <planeGeometry args={[5000, roadLength]} />
-        <meshStandardMaterial color="#0a0505" />
+        <meshStandardMaterial color="#3d2817" roughness={1} />
       </mesh>
 
       {/* 道路段 */}
@@ -194,15 +194,16 @@ const Car: React.FC<{
     carRef.current.rotation.y = -steerAmountRef.current * 0.4;
     carRef.current.rotation.z = -steerAmountRef.current * 0.2;
 
-    // 相机跟随
+    // 相机跟随和碰撞检测
     const roadCenterX = getRoadOffset(zRef.current, level);
     const camTargetX = THREE.MathUtils.lerp(xRef.current, roadCenterX, 0.45);
     state.camera.position.lerp(new THREE.Vector3(camTargetX, 8, -zRef.current + 18), 0.1);
     state.camera.lookAt(xRef.current, 0.5, -zRef.current - 30);
 
-    // 碰撞检测
+    // 碰撞检测 - 放宽阈值，让玩家有更多容错空间
+    // ROAD_WIDTH 是 32，一半是 16，给 8 的容错空间，总共 24
     const distFromCenter = Math.abs(xRef.current - roadCenterX);
-    if (distFromCenter > (ROAD_WIDTH / 2) + 3) {
+    if (distFromCenter > (ROAD_WIDTH / 2) + 8) {
       onFail(level === Level.LEVEL_1 ? "偏离公路" : "失踪在荒野中");
     }
 
