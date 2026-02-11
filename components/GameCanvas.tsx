@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, PerspectiveCamera } from '@react-three/drei';
+import { PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { GameStatus, Level, InputState } from '../types';
-import { ROAD_WIDTH, MAX_SPEED, ACCELERATION, STEERING_SPEED, FRICTION, LEVEL_CONFIGS, COLORS } from '../constants';
+import { ROAD_WIDTH, MAX_SPEED, ACCELERATION, STEERING_SPEED, FRICTION, LEVEL_CONFIGS } from '../constants';
 
 interface GameCanvasProps {
   status: GameStatus;
@@ -23,42 +23,119 @@ const getRoadOffset = (z: number, level: Level) => {
   return Math.sin(nZ * 0.003) * 55 + Math.sin(nZ * 0.001) * 35;
 };
 
-// 简化的山脉组件 - 使用低多边形
-const Mountain: React.FC<{ position: [number, number, number], scale: number }> = ({ position, scale }) => {
+// 天空背景组件 - 白天蓝色渐变
+const SkyBackground: React.FC = () => {
+  return (
+    <>
+      {/* 天空球体 */}
+      <mesh>
+        <sphereGeometry args={[2000, 32, 32]} />
+        <meshBasicMaterial 
+          color="#87CEEB"
+          side={THREE.BackSide}
+        />
+      </mesh>
+      
+      {/* 远处地平线 */}
+      <mesh position={[0, -100, -1000]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[10000, 2000]} />
+        <meshBasicMaterial color="#E0F6FF" />
+      </mesh>
+      
+      {/* 太阳 */}
+      <mesh position={[500, 300, -800]}>
+        <sphereGeometry args={[60, 32, 32]} />
+        <meshBasicMaterial color="#FFF8DC" />
+      </mesh>
+      
+      {/* 太阳光晕 */}
+      <mesh position={[500, 300, -799]}>
+        <sphereGeometry args={[100, 32, 32]} />
+        <meshBasicMaterial 
+          color="#FFF8DC" 
+          transparent 
+          opacity={0.3}
+        />
+      </mesh>
+    </>
+  );
+};
+
+// 云朵组件
+const Cloud: React.FC<{ position: [number, number, number], scale: number }> = ({ position, scale }) => {
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[15, 16, 16]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.8} />
+      </mesh>
+      <mesh position={[12, 2, 0]}>
+        <sphereGeometry args={[12, 16, 16]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.8} />
+      </mesh>
+      <mesh position={[-12, 0, 2]}>
+        <sphereGeometry args={[10, 16, 16]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.8} />
+      </mesh>
+    </group>
+  );
+};
+
+// 绿色山丘组件
+const Hill: React.FC<{ position: [number, number, number], scale: number, color: string }> = ({ position, scale, color }) => {
   return (
     <group position={position} scale={scale}>
       <mesh>
-        <coneGeometry args={[20, 40, 5]} />
-        <meshStandardMaterial color={COLORS.mountain} flatShading />
+        <coneGeometry args={[40, 30, 8]} />
+        <meshStandardMaterial color={color} flatShading />
       </mesh>
     </group>
   );
 };
 
-// 简化的树木组件
-const Tree: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+// 树木组件 - 更生动的颜色
+const Tree: React.FC<{ position: [number, number, number], type: 'pine' | 'oak' }> = ({ position, type }) => {
+  if (type === 'pine') {
+    return (
+      <group position={position}>
+        <mesh position={[0, 1.5, 0]}>
+          <cylinderGeometry args={[0.3, 0.5, 3, 8]} />
+          <meshStandardMaterial color="#8B4513" />
+        </mesh>
+        <mesh position={[0, 5, 0]}>
+          <coneGeometry args={[2.5, 6, 8]} />
+          <meshStandardMaterial color="#228B22" flatShading />
+        </mesh>
+        <mesh position={[0, 8, 0]}>
+          <coneGeometry args={[2, 5, 8]} />
+          <meshStandardMaterial color="#228B22" flatShading />
+        </mesh>
+      </group>
+    );
+  }
+  
   return (
     <group position={position}>
       <mesh position={[0, 2, 0]}>
-        <cylinderGeometry args={[0.5, 0.8, 4, 6]} />
-        <meshStandardMaterial color={COLORS.trunk} />
+        <cylinderGeometry args={[0.4, 0.6, 4, 8]} />
+        <meshStandardMaterial color="#8B4513" />
       </mesh>
       <mesh position={[0, 6, 0]}>
-        <coneGeometry args={[3, 8, 6]} />
-        <meshStandardMaterial color={COLORS.foliage} flatShading />
+        <sphereGeometry args={[4, 8, 8]} />
+        <meshStandardMaterial color="#32CD32" flatShading />
       </mesh>
     </group>
   );
 };
 
-// 性能优化的道路组件
+// 道路组件
 const Road: React.FC<{ level: Level }> = ({ level }) => {
   const config = LEVEL_CONFIGS[level];
   const roadLength = config.distanceGoal + 1000;
   
   const roadSegments = useMemo(() => {
     const segments = [];
-    const step = 4.0; // 减小步长，让弯道更平滑
+    const step = 4.0;
     let index = 0;
     for (let z = 0; z < roadLength; z += step) {
       const x1 = getRoadOffset(z, level);
@@ -70,8 +147,8 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
       segments.push({
         position: [x1 + dx / 2, 0, -z - step / 2],
         rotation: [0, angle, 0],
-        length: segLength * 1.05, // 稍微重叠避免缝隙
-        hasMarking: index % 4 === 0 // 每4段显示一个标记
+        length: segLength * 1.05,
+        hasMarking: index % 4 === 0
       });
       index++;
     }
@@ -80,37 +157,37 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
 
   return (
     <group>
-      {/* 地面 - 使用较亮的颜色让玩家能看到边界 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, -roadLength/2]}>
-        <planeGeometry args={[5000, roadLength]} />
-        <meshStandardMaterial color="#3d2817" roughness={1} />
+      {/* 草地地面 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, -roadLength/2]}>
+        <planeGeometry args={[10000, roadLength]} />
+        <meshStandardMaterial color="#4a7c59" />
       </mesh>
 
       {/* 道路段 */}
       {roadSegments.map((seg, i) => (
         <group key={i} position={seg.position as [number, number, number]} rotation={seg.rotation as [number, number, number]}>
-          {/* 路面 - 使用更亮的颜色 */}
+          {/* 沥青路面 */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
             <planeGeometry args={[ROAD_WIDTH, seg.length]} />
-            <meshStandardMaterial color="#2a2a2a" roughness={0.8} />
+            <meshStandardMaterial color="#333333" roughness={0.9} />
           </mesh>
           
-          {/* 中心线 */}
+          {/* 黄色中心线 */}
           {seg.hasMarking && (
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-              <planeGeometry args={[0.6, seg.length * 0.5]} />
-              <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} />
+              <planeGeometry args={[0.4, seg.length * 0.6]} />
+              <meshStandardMaterial color="#FFD700" />
             </mesh>
           )}
 
-          {/* 路边线 */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ROAD_WIDTH/2 - 0.3, 0.02, 0]}>
-            <planeGeometry args={[0.6, seg.length]} />
-            <meshStandardMaterial color="#ffffff" />
+          {/* 白色路边线 */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ROAD_WIDTH/2 - 0.3, 0.01, 0]}>
+            <planeGeometry args={[0.4, seg.length]} />
+            <meshStandardMaterial color="#FFFFFF" />
           </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-ROAD_WIDTH/2 + 0.3, 0.02, 0]}>
-            <planeGeometry args={[0.6, seg.length]} />
-            <meshStandardMaterial color="#ffffff" />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-ROAD_WIDTH/2 + 0.3, 0.01, 0]}>
+            <planeGeometry args={[0.4, seg.length]} />
+            <meshStandardMaterial color="#FFFFFF" />
           </mesh>
         </group>
       ))}
@@ -118,34 +195,82 @@ const Road: React.FC<{ level: Level }> = ({ level }) => {
   );
 };
 
-// 车灯光照组件
-const CarLights: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+// 场景装饰组件
+const Scenery: React.FC<{ level: Level }> = ({ level }) => {
+  const config = LEVEL_CONFIGS[level];
+  const roadLength = config.distanceGoal + 1000;
+  
+  const elements = useMemo(() => {
+    const items = [];
+    
+    // 远处的山丘
+    for (let i = 0; i < 20; i++) {
+      const zPos = Math.random() * roadLength;
+      const roadX = getRoadOffset(zPos, level);
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const scale = 15 + Math.random() * 20;
+      const xPos = roadX + (side * (400 + Math.random() * 600));
+      const colors = ['#6B8E23', '#556B2F', '#8FBC8F'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      
+      items.push({ 
+        id: `hill-${i}`, 
+        x: xPos, 
+        z: -zPos, 
+        type: 'hill' as const, 
+        scale, 
+        color,
+        y: -20
+      });
+    }
+    
+    // 树木 - 远离公路
+    for (let i = 0; i < 60; i++) {
+      const zPos = Math.random() * roadLength;
+      const roadX = getRoadOffset(zPos, level);
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const safeDistance = (ROAD_WIDTH / 2) + 30;
+      const xPos = roadX + (side * (safeDistance + Math.random() * 200));
+      
+      items.push({ 
+        id: `tree-${i}`, 
+        x: xPos, 
+        z: -zPos, 
+        type: 'tree' as const,
+        treeType: Math.random() > 0.5 ? 'pine' : 'oak' as const,
+        y: 0
+      });
+    }
+    
+    // 云朵
+    for (let i = 0; i < 15; i++) {
+      items.push({
+        id: `cloud-${i}`,
+        x: (Math.random() - 0.5) * 2000,
+        y: 150 + Math.random() * 100,
+        z: -Math.random() * 2000,
+        type: 'cloud' as const,
+        scale: 2 + Math.random() * 3
+      });
+    }
+    
+    return items;
+  }, [level, roadLength]);
+
   return (
-    <group position={position}>
-      {/* 左车灯 - 增强亮度和范围 */}
-      <spotLight
-        position={[-0.8, 0.5, -1.5]}
-        target-position={[-0.8, 0, -20]}
-        angle={0.6}
-        penumbra={0.4}
-        intensity={100}
-        distance={150}
-        color="#ffffee"
-        castShadow
-      />
-      {/* 右车灯 - 增强亮度和范围 */}
-      <spotLight
-        position={[0.8, 0.5, -1.5]}
-        target-position={[0.8, 0, -20]}
-        angle={0.6}
-        penumbra={0.4}
-        intensity={100}
-        distance={150}
-        color="#ffffee"
-        castShadow
-      />
-      {/* 尾灯 */}
-      <pointLight position={[0, 0.5, 2]} intensity={30} distance={40} color="#ff3333" />
+    <group>
+      {elements.map((e) => {
+        if (e.type === 'hill') {
+          return <Hill key={e.id} position={[e.x, e.y, e.z]} scale={e.scale} color={e.color} />;
+        }
+        if (e.type === 'tree') {
+          return <Tree key={e.id} position={[e.x, e.y, e.z]} type={e.treeType} />;
+        }
+        if (e.type === 'cloud') {
+          return <Cloud key={e.id} position={[e.x, e.y, e.z]} scale={e.scale} />;
+        }
+        return null;
+      })}
     </group>
   );
 };
@@ -166,14 +291,12 @@ const Car: React.FC<{
   useFrame((state, delta) => {
     if (!carRef.current) return;
 
-    // 加速/减速
     if (input.forward) {
       speedRef.current = Math.min(speedRef.current + ACCELERATION, MAX_SPEED);
     } else {
       speedRef.current = Math.max(speedRef.current - FRICTION, 0);
     }
 
-    // 转向
     const steerTarget = (input.left ? -1 : 0) + (input.right ? 1 : 0);
     const steerSensitivity = 4.5;
     
@@ -183,25 +306,20 @@ const Car: React.FC<{
       steerAmountRef.current = THREE.MathUtils.lerp(steerAmountRef.current, 0, 6.0 * delta);
     }
 
-    // 移动
     const forwardMovement = speedRef.current * 200 * delta;
     zRef.current += forwardMovement;
     const lateralMovement = steerAmountRef.current * (speedRef.current * 110) * delta;
     xRef.current += lateralMovement;
 
-    // 更新车辆位置和旋转
     carRef.current.position.set(xRef.current, 0.5, -zRef.current);
     carRef.current.rotation.y = -steerAmountRef.current * 0.4;
     carRef.current.rotation.z = -steerAmountRef.current * 0.2;
 
-    // 相机跟随和碰撞检测
     const roadCenterX = getRoadOffset(zRef.current, level);
     const camTargetX = THREE.MathUtils.lerp(xRef.current, roadCenterX, 0.45);
     state.camera.position.lerp(new THREE.Vector3(camTargetX, 8, -zRef.current + 18), 0.1);
     state.camera.lookAt(xRef.current, 0.5, -zRef.current - 30);
 
-    // 碰撞检测 - 放宽阈值，让玩家有更多容错空间
-    // ROAD_WIDTH 是 32，一半是 16，给 8 的容错空间，总共 24
     const distFromCenter = Math.abs(xRef.current - roadCenterX);
     if (distFromCenter > (ROAD_WIDTH / 2) + 8) {
       onFail(level === Level.LEVEL_1 ? "偏离公路" : "失踪在荒野中");
@@ -212,115 +330,42 @@ const Car: React.FC<{
 
   return (
     <group ref={carRef}>
-      <CarLights position={[0, 0, 0]} />
-      
-      {/* 车身 */}
+      {/* 车身 - 红色跑车 */}
       <mesh position={[0, 0.6, 0]} castShadow>
-        <boxGeometry args={[2, 1.2, 4.5]} />
-        <meshStandardMaterial color="#1a1a2e" metalness={0.8} roughness={0.2} />
+        <boxGeometry args={[2, 1, 4.5]} />
+        <meshStandardMaterial color="#DC143C" metalness={0.6} roughness={0.2} />
       </mesh>
       
       {/* 车顶 */}
       <mesh position={[0, 1.4, -0.3]} castShadow>
         <boxGeometry args={[1.6, 0.8, 2.5]} />
-        <meshStandardMaterial color="#0f0f1a" metalness={0.9} roughness={0.1} />
+        <meshStandardMaterial color="#B22222" metalness={0.7} roughness={0.1} />
       </mesh>
       
-      {/* 前车灯 */}
-      <mesh position={[-0.7, 0.6, -2.3]}>
-        <boxGeometry args={[0.4, 0.3, 0.1]} />
-        <meshStandardMaterial color="#fff5e0" emissive="#fff5e0" emissiveIntensity={10} />
-      </mesh>
-      <mesh position={[0.7, 0.6, -2.3]}>
-        <boxGeometry args={[0.4, 0.3, 0.1]} />
-        <meshStandardMaterial color="#fff5e0" emissive="#fff5e0" emissiveIntensity={10} />
+      {/* 挡风玻璃 */}
+      <mesh position={[0, 1.4, -1.6]}>
+        <boxGeometry args={[1.5, 0.6, 0.1]} />
+        <meshStandardMaterial color="#87CEEB" transparent opacity={0.6} />
       </mesh>
       
-      {/* 尾灯 */}
-      <mesh position={[-0.7, 0.8, 2.3]}>
-        <boxGeometry args={[0.5, 0.2, 0.1]} />
-        <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={5} />
-      </mesh>
-      <mesh position={[0.7, 0.8, 2.3]}>
-        <boxGeometry args={[0.5, 0.2, 0.1]} />
-        <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={5} />
-      </mesh>
-
       {/* 车轮 */}
-      {[[-1, -1.8], [1, -1.8], [-1, 1.8], [1, 1.8]].map(([x, z], i) => (
+      {[[-1.1, -1.8], [1.1, -1.8], [-1.1, 1.8], [1.1, 1.8]].map(([x, z], i) => (
         <mesh key={i} position={[x, 0.3, z]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.3, 0.3, 0.4, 12]} />
+          <cylinderGeometry args={[0.35, 0.35, 0.4, 12]} />
           <meshStandardMaterial color="#1a1a1a" />
         </mesh>
       ))}
-    </group>
-  );
-};
-
-// 场景组件 - 优化性能
-const Scenery: React.FC<{ level: Level }> = ({ level }) => {
-  const config = LEVEL_CONFIGS[level];
-  const roadLength = config.distanceGoal + 1000;
-  
-  const elements = useMemo(() => {
-    const items = [];
-    // 大幅减少密度以优化性能
-    const density = level === Level.LEVEL_1 ? 80 : 120;
-    
-    for (let i = 0; i < density; i++) {
-      const zPos = Math.random() * roadLength;
-      const roadX = getRoadOffset(zPos, level);
-      const side = Math.random() > 0.5 ? 1 : -1;
       
-      const typeRand = Math.random();
-      const type: 'tree' | 'mountain' = typeRand > 0.3 ? 'tree' : 'mountain';
-      const scale = type === 'mountain' ? 10 + Math.random() * 20 : 2 + Math.random() * 2;
-      
-      // 山体和树木放在更远的地方，避免挡住公路
-      const baseRadius = type === 'mountain' ? 25 : 15;
-      const safeDistance = (ROAD_WIDTH / 2) + baseRadius + 150; // 增加到150
-      
-      const xPos = roadX + (side * (safeDistance + Math.random() * 400));
-
-      items.push({ id: i, x: xPos, z: -zPos, type, scale });
-    }
-    return items;
-  }, [level, roadLength]);
-
-  return (
-    <group>
-      {elements.map((e) => (
-        e.type === 'mountain' ? 
-          <Mountain key={e.id} position={[e.x, -30, e.z]} scale={e.scale} /> :
-          <Tree key={e.id} position={[e.x, 0, e.z]} />
-      ))}
-    </group>
-  );
-};
-
-// 天空背景组件 - 替代 Sky 组件
-const CustomSky: React.FC = () => {
-  return (
-    <>
-      {/* 远处渐变背景 */}
-      <mesh position={[0, 100, -1000]} rotation={[0, 0, 0]}>
-        <planeGeometry args={[5000, 500]} />
-        <meshBasicMaterial 
-          color="#1a0b2e"
-          side={THREE.DoubleSide}
-        />
+      {/* 前大灯 */}
+      <mesh position={[-0.7, 0.6, -2.3]}>
+        <boxGeometry args={[0.3, 0.2, 0.1]} />
+        <meshStandardMaterial color="#FFFFFF" emissive="#FFFFFF" emissiveIntensity={2} />
       </mesh>
-      
-      {/* 地平线光晕 */}
-      <mesh position={[0, 50, -800]} rotation={[0, 0, 0]}>
-        <planeGeometry args={[3000, 200]} />
-        <meshBasicMaterial 
-          color="#ff6b35"
-          transparent
-          opacity={0.3}
-        />
+      <mesh position={[0.7, 0.6, -2.3]}>
+        <boxGeometry args={[0.3, 0.2, 0.1]} />
+        <meshStandardMaterial color="#FFFFFF" emissive="#FFFFFF" emissiveIntensity={2} />
       </mesh>
-    </>
+    </group>
   );
 };
 
@@ -345,64 +390,48 @@ const Scene: React.FC<GameCanvasProps & { input: InputState }> = ({ level, onWin
 
   return (
     <>
-      <PerspectiveCamera makeDefault fov={60} near={0.1} far={2000} />
+      <PerspectiveCamera makeDefault fov={60} near={0.1} far={5000} />
       
-      {/* 环境光 - 增加亮度 */}
-      <ambientLight intensity={0.6} color="#6a5d7c" />
+      {/* 天空背景 */}
+      <SkyBackground />
       
-      {/* 半球光 - 模拟天空和地面的反射 */}
+      {/* 环境光 - 明亮的白天 */}
+      <ambientLight intensity={0.8} color="#FFFFFF" />
+      
+      {/* 半球光 - 天空和地面的自然光照 */}
       <hemisphereLight 
-        skyColor="#ff7e5f" 
-        groundColor="#1a0f0a" 
-        intensity={0.8}
+        skyColor="#87CEEB" 
+        groundColor="#4a7c59" 
+        intensity={0.6}
       />
       
-      {/* 主光源（夕阳效果）- 增强亮度 */}
+      {/* 太阳光 - 主光源 */}
       <directionalLight 
-        position={[100, 80, -200]} 
-        intensity={5}
-        color="#ffaa77"
+        position={[500, 300, -500]} 
+        intensity={1.5}
+        color="#FFF8DC"
         castShadow
         shadow-mapSize={[1024, 1024]}
-        shadow-camera-far={1000}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
+        shadow-camera-far={2000}
+        shadow-camera-left={-200}
+        shadow-camera-right={200}
+        shadow-camera-top={200}
+        shadow-camera-bottom={-200}
       />
       
-      {/* 补光 - 增强 */}
+      {/* 补光 - 减少阴影死黑 */}
       <directionalLight 
-        position={[-100, 50, -100]} 
-        intensity={2}
-        color="#7f9eff"
+        position={[-200, 100, 200]} 
+        intensity={0.4}
+        color="#E0F6FF"
       />
       
-      {/* 填充光 - 从下方补光，减少死黑 */}
-      <directionalLight 
-        position={[0, -50, 100]} 
-        intensity={0.5}
-        color="#ff9966"
-      />
+      {/* 远处的雾气 - 增加景深 */}
+      <fog attach="fog" args={['#87CEEB', 200, 1500]} />
       
-      {/* 雾气效果 - 调整为可见度更好 */}
-      <fog attach="fog" args={['#1a0a0a', 80, 600]} />
-      
-      <CustomSky />
       <Road level={level} />
       <Scenery level={level} />
       <Car input={input} level={level} onUpdate={handleUpdate} onFail={onFail} />
-      
-      {/* 优化星星数量 - 从12万减少到5000 */}
-      <Stars 
-        radius={400} 
-        depth={200} 
-        count={5000} 
-        factor={8} 
-        saturation={0.8} 
-        fade 
-        speed={0.5}
-      />
     </>
   );
 };
@@ -432,12 +461,12 @@ const GameCanvas: React.FC<GameCanvasProps> = (props) => {
   }, []);
 
   return (
-    <div style={{ width: '100%', height: '100vh', background: '#000', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100vh', background: '#87CEEB', overflow: 'hidden' }}>
       <Canvas
         shadows
-        dpr={1} // 限制 DPR 以提高性能
+        dpr={1}
         gl={{
-          antialias: false, // 关闭抗锯齿以提高性能
+          antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           alpha: false,
           powerPreference: 'high-performance',
