@@ -203,13 +203,17 @@ const Scenery: React.FC<{ level: Level }> = ({ level }) => {
   const elements = useMemo(() => {
     const items = [];
     
-    // 远处的山丘
+    // 远处的山丘 - 确保不会挡在公路上
     for (let i = 0; i < 20; i++) {
       const zPos = Math.random() * roadLength;
       const roadX = getRoadOffset(zPos, level);
       const side = Math.random() > 0.5 ? 1 : -1;
-      const scale = 15 + Math.random() * 20;
-      const xPos = roadX + (side * (400 + Math.random() * 600));
+      // 限制 scale 避免山丘过大，同时增加与公路的距离
+      const scale = 8 + Math.random() * 12; // 8-20，而不是 15-35
+      // coneGeometry 底面半径 40，考虑 scale 后实际半径最大 800
+      // 安全距离设为 1000 + 随机，确保山丘不会碰到公路
+      const minDistance = 1000 + Math.random() * 800;
+      const xPos = roadX + (side * minDistance);
       const colors = ['#6B8E23', '#556B2F', '#8FBC8F'];
       const color = colors[Math.floor(Math.random() * colors.length)];
       
@@ -316,9 +320,10 @@ const Car: React.FC<{
     carRef.current.rotation.z = -steerAmountRef.current * 0.2;
 
     const roadCenterX = getRoadOffset(zRef.current, level);
-    const camTargetX = THREE.MathUtils.lerp(xRef.current, roadCenterX, 0.45);
-    state.camera.position.lerp(new THREE.Vector3(camTargetX, 8, -zRef.current + 18), 0.1);
-    state.camera.lookAt(xRef.current, 0.5, -zRef.current - 30);
+    // 跑跑卡丁车式视角：相机固定在车辆后方，无延迟跟随
+    const camTargetX = THREE.MathUtils.lerp(xRef.current, roadCenterX, 0.15);
+    state.camera.position.set(camTargetX, 8, -zRef.current + 12);
+    state.camera.lookAt(xRef.current, 0, -zRef.current - 40);
 
     const distFromCenter = Math.abs(xRef.current - roadCenterX);
     if (distFromCenter > (ROAD_WIDTH / 2) + 8) {

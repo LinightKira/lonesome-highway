@@ -7,14 +7,14 @@ export const FRICTION = 0.005;
 
 export const LEVEL_CONFIGS = {
   1: {
-    distanceGoal: 1000,
+    distanceGoal: 5000,
     curvy: false,
-    label: "第一关：笔直之路 (1km)"
+    label: "第一关：笔直之路 (5km)"
   },
   2: {
-    distanceGoal: 8000,
+    distanceGoal: 15000,
     curvy: true,
-    label: "第二关：蜿蜒山脊 (8km)"
+    label: "第二关：蜿蜒山脊 (15km)"
   }
 };
 
