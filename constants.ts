@@ -2,7 +2,7 @@
 export const ROAD_WIDTH = 32; // Significantly wider for better maneuverability
 export const MAX_SPEED = 1.0;
 export const ACCELERATION = 0.015;
-export const STEERING_SPEED = 0.8; 
+export const STEERING_SPEED = 0.55; 
 export const FRICTION = 0.005;
 
 export const LEVEL_CONFIGS = {
